@@ -1,0 +1,26 @@
+{
+  "id": "test-agent",
+  "name": "MVP Test Agent",
+  "description": "A test agent for validating all MVP capabilities",
+  "basePrompt": "You are a helpful AI assistant with access to various tools. You can search the web, make HTTP requests, and perform file operations. When using tools, always explain what you're doing and why. If you encounter any errors, explain them clearly.",
+  "model": {
+    "provider": "openai",
+    "name": "gpt-4",
+    "temperature": 0.7,
+    "maxTokens": 2000
+  },
+  "tools": [
+    {
+      "id": "web_search",
+      "config": {}
+    },
+    {
+      "id": "http_request",
+      "config": {}
+    },
+    {
+      "id": "file_operations",
+      "config": {}
+    }
+  ]
+} 

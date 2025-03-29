@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # Override frontend configuration
+  frontend:
+    build:
+      context: ./frontend-new
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=http://localhost:4000/api
+        - REACT_APP_VERSION=0.1.0
+    ports:
+      - "8080:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:4000/api
+    volumes:
+      - ./frontend-new:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  api-gateway:
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - BUILDER_SERVICE_URL=http://builder-service:3001
+      - TEMPLATE_SERVICE_URL=http://template-service:3002
+      - DEPLOYMENT_SERVICE_URL=http://deployment-service:3003
+    volumes:
+      - ./services/api-gateway:/app
+      - /app/node_modules
+
+  template-service:
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+    volumes:
+      - ./services/template-service:/app
+      - /app/node_modules
+
+  builder-service:
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+    volumes:
+      - ./services/builder-service:/app
+      - /app/node_modules
+
+  deployment-service:
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - KUBERNETES_NAMESPACE=novamind-dev
+    volumes:
+      - ./services/deployment-service:/app
+      - /app/node_modules
+      - ~/.kube:/root/.kube
+
+  mongodb:
+    environment:
+      - MONGO_INITDB_DATABASE=novamind
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
+    volumes:
+      - ./infra/mongodb/init.js:/docker-entrypoint-initdb.d/init.js:ro

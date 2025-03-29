@@ -1,0 +1,21 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package*.json ./
+COPY shared/package*.json ./shared/
+
+# Install dependencies
+RUN npm install
+RUN cd shared && npm install
+
+# Copy source files
+COPY shared ./shared
+COPY tsconfig.json ./
+
+# Build shared module
+RUN cd shared && npm run build 

@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # API Gateway Service
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - template-service
+      - builder-service
+      - deployment-service
+
+  # Builder Service
+  builder-service:
+    build:
+      context: .
+      dockerfile: services/builder-service/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+  # Template Service
+  template-service:
+    build:
+      context: .
+      dockerfile: services/template-service/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/novamind
+
+  # Deployment Service
+  deployment-service:
+    build:
+      context: .
+      dockerfile: services/deployment-service/Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - KUBERNETES_CONFIG=/app/config/kube-config.yaml
+    volumes:
+      - ./config:/app/config
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend-new
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=http://localhost:4000/api
+        - REACT_APP_VERSION=0.1.0
+    ports:
+      - "8080:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:4000/api
+    volumes:
+      - ./frontend-new:/app
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - novamind-network
+
+  # MongoDB (Database)
+  mongodb:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=deployment-service
+
+  # Redis (Caching)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  novamind-network:
+    driver: bridge

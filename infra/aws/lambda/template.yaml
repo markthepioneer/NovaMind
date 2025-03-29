@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: NovaMind Agent Lambda Deployment
+
+Parameters:
+  AgentId:
+    Type: String
+    Description: The ID of the agent to deploy
+  
+  DeploymentId:
+    Type: String
+    Description: The ID of the deployment
+  
+  UserId:
+    Type: String
+    Description: The ID of the user who created the deployment
+  
+  Environment:
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: The deployment environment
+  
+  ApiBaseUrl:
+    Type: String
+    Default: https://api.novamind.ai
+    Description: The base URL for the NovaMind API
+  
+  MemorySize:
+    Type: Number
+    Default: 256
+    AllowedValues: [128, 256, 512, 1024, 2048, 4096, 8192, 10240]
+    Description: The amount of memory for the Lambda function (MB)
+  
+  Timeout:
+    Type: Number
+    Default: 30
+    MinValue: 3
+    MaxValue: 900
+    Description: The Lambda function timeout in seconds
+
+Resources:
+  AgentLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "novamind-agent-${DeploymentId}"
+      CodeUri: s3://{{S3_BUCKET}}/agent-runtime/latest.zip
+      Handler: dist/index.handler
+      Runtime: nodejs18.x
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+      Environment:
+        Variables:
+          AGENT_ID: !Ref AgentId
+          DEPLOYMENT_ID: !Ref DeploymentId
+          NODE_ENV: !Ref Environment
+          API_BASE_URL: !Ref ApiBaseUrl
+          LOG_LEVEL: info
+          {{ADDITIONAL_ENV_VARS}}
+      Tags:
+        AgentId: !Ref AgentId
+        DeploymentId: !Ref DeploymentId
+        UserId: !Ref UserId
+        ManagedBy: novamind
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /message
+            Method: post
+      Policies:
+        - CloudWatchLogsFullAccess
+        - AWSXrayWriteOnlyAccess
+
+  AgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/novamind-agent-${DeploymentId}"
+      RetentionInDays: 30
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL for the agent"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/message"
+  
+  LambdaFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt AgentLambdaFunction.Arn
+  
+  LogGroup:
+    Description: "CloudWatch Log Group"
+    Value: !Ref AgentLogGroup
